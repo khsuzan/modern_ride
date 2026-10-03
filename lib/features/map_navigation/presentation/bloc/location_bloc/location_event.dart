@@ -12,3 +12,5 @@ class CheckLocationPermission extends LocationEvent {}
 class RequestLocationPermission extends LocationEvent {}
 
 class FetchCurrentLocation extends LocationEvent {}
+
+class OpenAppSettings extends LocationEvent {}

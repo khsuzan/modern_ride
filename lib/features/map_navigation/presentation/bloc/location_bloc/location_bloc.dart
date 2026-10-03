@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
@@ -18,13 +20,13 @@ class LocationBloc extends Bloc<LocationEvent, LocationState> {
     on<CheckLocationPermission>(_onCheckLocationPermission);
     on<RequestLocationPermission>(_onRequestLocationPermission);
     on<FetchCurrentLocation>(_onFetchCurrentLocation);
+    on<OpenAppSettings>(_onOpenSettings);
   }
   // Event: Check Location Permission
   void _onCheckLocationPermission(
     LocationEvent event,
     Emitter<LocationState> emit,
   ) async {
-    emit(LocationLoading());
     switch (await locationRepository.checkPermission()) {
       case Success(data: final permission):
         _onLocationPermissionCheckSucceed(event, emit, permission);
@@ -42,10 +44,10 @@ class LocationBloc extends Bloc<LocationEvent, LocationState> {
       AppLogger.debug("Location Permission: Permission Granted");
     } else if (permission == LocationPermissionType.denied) {
       AppLogger.debug("Location Permission: Permission Denied");
-      emit(LocationPermissionDenied());
+      emit(LocationPermissionDenied(isPermanentlyDenied: false));
     } else {
       AppLogger.debug("Location Permission: Permission Denied ~ $permission");
-      emit(LocationPermissionDenied());
+      emit(LocationPermissionDenied(isPermanentlyDenied: true));
     }
   }
 
@@ -62,10 +64,44 @@ class LocationBloc extends Bloc<LocationEvent, LocationState> {
   void _onRequestLocationPermission(
     LocationEvent event,
     Emitter<LocationState> emit,
-  ) async {}
+  ) async {
+    emit(LocationLoading());
+    switch (await locationRepository.requestPermission()) {
+      case Success(data: final permission):
+        if (permission == LocationPermissionType.granted) {
+          add(FetchCurrentLocation());
+          AppLogger.debug("Location Permission: Permission Granted");
+        } else if (permission == LocationPermissionType.denied) {
+          AppLogger.debug("Location Permission: Permission Denied");
+          emit(LocationPermissionDenied(isPermanentlyDenied: false));
+        } else {
+          AppLogger.debug(
+            "Location Permission: Permission Denied ~ $permission",
+          );
+          emit(LocationPermissionDenied(isPermanentlyDenied: true));
+        }
+      case Error(failure: final failure):
+        _onLocationPermissionCheckError(event, emit, failure);
+    }
+  }
+
   // Event: Fetch Current Location
   void _onFetchCurrentLocation(
     LocationEvent event,
     Emitter<LocationState> emit,
-  ) async {}
+  ) async {
+    switch (await locationRepository.getCurrentLocation()) {
+      case Success(data: final location):
+        AppLogger.info("Location: Current Location: $location");
+        emit(LocationLoaded(userLocation: location));
+      case Error(failure: final failure):
+        AppLogger.error("Location: Error: ${failure.message}");
+        emit(LocationError(message: failure.message));
+    }
+  }
+
+  // Event: Open App Settings
+  void _onOpenSettings(OpenAppSettings event, Emitter<LocationState> emit) {
+    locationRepository.openAppSettings();
+  }
 }

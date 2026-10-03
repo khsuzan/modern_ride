@@ -11,7 +11,13 @@ final class LocationInitial extends LocationState {}
 
 final class LocationLoading extends LocationState {}
 
-final class LocationPermissionDenied extends LocationState {}
+final class LocationPermissionDenied extends LocationState {
+  final bool isPermanentlyDenied;
+  const LocationPermissionDenied({required this.isPermanentlyDenied});
+
+  @override
+  List<Object> get props => [isPermanentlyDenied];
+}
 
 final class LocationServiceDisabled extends LocationState {}
 
