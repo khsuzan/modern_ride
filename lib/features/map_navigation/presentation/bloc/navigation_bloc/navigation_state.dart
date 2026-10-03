@@ -9,6 +9,8 @@ sealed class NavigationState extends Equatable {
         RouteLoading(:final pickup) => pickup,
         RouteReady(:final pickup) => pickup,
         RouteFailureState(:final pickup) => pickup,
+        Navigating(:final pickup) => pickup,
+        NavigationCompleted(:final pickup) => pickup,
         _ => null,
       };
 
@@ -16,6 +18,20 @@ sealed class NavigationState extends Equatable {
         RouteLoading(:final destination) => destination,
         RouteReady(:final destination) => destination,
         RouteFailureState(:final destination) => destination,
+        Navigating(:final destination) => destination,
+        NavigationCompleted(:final destination) => destination,
+        _ => null,
+      };
+
+  RouteEntity? get route => switch (this) {
+        RouteReady(:final route) => route,
+        Navigating(:final route) => route,
+        NavigationCompleted(:final route) => route,
+        _ => null,
+      };
+
+  NavProgress? get progress => switch (this) {
+        Navigating(:final progress) => progress,
         _ => null,
       };
 
@@ -72,6 +88,7 @@ final class RouteReady extends NavigationState {
   final LatLng pickup;
   @override
   final LatLng destination;
+  @override
   final RouteEntity route;
 
   const RouteReady({
@@ -100,4 +117,79 @@ final class RouteFailureState extends NavigationState {
 
   @override
   List<Object?> get props => [pickup, destination, message];
+}
+
+/// Navigation actively running (simulation playback or real GPS tracking).
+final class Navigating extends NavigationState {
+  @override
+  final LatLng pickup;
+  @override
+  final LatLng destination;
+  @override
+  final RouteEntity route;
+  @override
+  final NavProgress progress;
+  final RideNavigationMode mode;
+  final bool isCameraFollowing;
+  final bool isRerouting;
+
+  const Navigating({
+    required this.pickup,
+    required this.destination,
+    required this.route,
+    required this.progress,
+    required this.mode,
+    this.isCameraFollowing = true,
+    this.isRerouting = false,
+  });
+
+  Navigating copyWith({
+    NavProgress? progress,
+    RouteEntity? route,
+    RideNavigationMode? mode,
+    bool? isCameraFollowing,
+    bool? isRerouting,
+  }) {
+    return Navigating(
+      pickup: pickup,
+      destination: destination,
+      route: route ?? this.route,
+      progress: progress ?? this.progress,
+      mode: mode ?? this.mode,
+      isCameraFollowing: isCameraFollowing ?? this.isCameraFollowing,
+      isRerouting: isRerouting ?? this.isRerouting,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+        pickup,
+        destination,
+        route,
+        progress,
+        mode,
+        isCameraFollowing,
+        isRerouting,
+      ];
+}
+
+/// Navigation successfully completed (reached destination).
+final class NavigationCompleted extends NavigationState {
+  @override
+  final LatLng pickup;
+  @override
+  final LatLng destination;
+  @override
+  final RouteEntity route;
+  final LatLng finalPosition;
+
+  const NavigationCompleted({
+    required this.pickup,
+    required this.destination,
+    required this.route,
+    required this.finalPosition,
+  });
+
+  @override
+  List<Object?> get props => [pickup, destination, route, finalPosition];
 }

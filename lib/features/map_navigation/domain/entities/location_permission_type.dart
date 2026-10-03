@@ -1,5 +1,1 @@
-enum LocationPermissionType {
-  granted,
-  denied,
-  permanentlyDenied,
-}
+enum LocationPermissionType { granted, denied, permanentlyDenied }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:modern_ride/core/errors/exceptions.dart';
@@ -12,13 +14,18 @@ part 'location_state.dart';
 
 class LocationBloc extends Bloc<LocationEvent, LocationState> {
   final LocationRepository locationRepository;
+  StreamSubscription<Result<UserLocation>>? _locationSubscription;
 
   LocationBloc({required this.locationRepository}) : super(LocationInitial()) {
     on<CheckLocationPermission>(_onCheckLocationPermission);
     on<RequestLocationPermission>(_onRequestLocationPermission);
     on<FetchCurrentLocation>(_onFetchCurrentLocation);
+    on<StartLocationTracking>(_onStartLocationTracking);
+    on<StopLocationTracking>(_onStopLocationTracking);
+    on<LocationUpdated>(_onLocationUpdated);
     on<OpenAppSettings>(_onOpenSettings);
   }
+
   // Event: Check Location Permission
   void _onCheckLocationPermission(
     LocationEvent event,
@@ -39,12 +46,13 @@ class LocationBloc extends Bloc<LocationEvent, LocationState> {
   ) {
     if (permission == LocationPermissionType.granted) {
       AppLogger.debug("Location Permission: Permission Granted");
+      add(StartLocationTracking());
     } else if (permission == LocationPermissionType.denied) {
       AppLogger.debug("Location Permission: Permission Denied");
-      emit(LocationPermissionDenied(isPermanentlyDenied: false));
+      emit(const LocationPermissionDenied(isPermanentlyDenied: false));
     } else {
       AppLogger.debug("Location Permission: Permission Denied ~ $permission");
-      emit(LocationPermissionDenied(isPermanentlyDenied: true));
+      emit(const LocationPermissionDenied(isPermanentlyDenied: true));
     }
   }
 
@@ -66,25 +74,23 @@ class LocationBloc extends Bloc<LocationEvent, LocationState> {
     switch (await locationRepository.requestPermission()) {
       case Success(data: final permission):
         if (permission == LocationPermissionType.granted) {
-          add(FetchCurrentLocation());
           AppLogger.debug("Location Permission: Permission Granted");
+          add(StartLocationTracking());
         } else if (permission == LocationPermissionType.denied) {
           AppLogger.debug("Location Permission: Permission Denied");
-          emit(LocationPermissionDenied(isPermanentlyDenied: false));
+          emit(const LocationPermissionDenied(isPermanentlyDenied: false));
         } else {
-          AppLogger.debug(
-            "Location Permission: Permission Denied ~ $permission",
-          );
-          emit(LocationPermissionDenied(isPermanentlyDenied: true));
+          AppLogger.debug("Location Permission: Permission Denied ~ $permission");
+          emit(const LocationPermissionDenied(isPermanentlyDenied: true));
         }
       case Error(failure: final failure):
         _onLocationPermissionCheckError(event, emit, failure);
     }
   }
 
-  // Event: Fetch Current Location
+  // Event: Fetch Current Location (one-shot)
   void _onFetchCurrentLocation(
-    LocationEvent event,
+    FetchCurrentLocation event,
     Emitter<LocationState> emit,
   ) async {
     switch (await locationRepository.getCurrentLocation()) {
@@ -97,8 +103,48 @@ class LocationBloc extends Bloc<LocationEvent, LocationState> {
     }
   }
 
+  // Event: Start continuous live location tracking
+  void _onStartLocationTracking(
+    StartLocationTracking event,
+    Emitter<LocationState> emit,
+  ) {
+    _locationSubscription?.cancel();
+    _locationSubscription = locationRepository.getLocationStream().listen(
+      (result) {
+        if (result is Success<UserLocation>) {
+          add(LocationUpdated(result.data));
+        } else if (result is Error<UserLocation>) {
+          AppLogger.error("Location stream error: ${result.failure.message}");
+        }
+      },
+    );
+  }
+
+  // Event: Stop continuous live location tracking
+  void _onStopLocationTracking(
+    StopLocationTracking event,
+    Emitter<LocationState> emit,
+  ) {
+    _locationSubscription?.cancel();
+    _locationSubscription = null;
+  }
+
+  void _onLocationUpdated(
+    LocationUpdated event,
+    Emitter<LocationState> emit,
+  ) {
+    emit(LocationLoaded(userLocation: event.userLocation));
+  }
+
   // Event: Open App Settings
   void _onOpenSettings(OpenAppSettings event, Emitter<LocationState> emit) {
     locationRepository.openAppSettings();
+  }
+
+  @override
+  Future<void> close() {
+    _locationSubscription?.cancel();
+    _locationSubscription = null;
+    return super.close();
   }
 }

@@ -49,6 +49,7 @@ class MyApp extends StatelessWidget {
           BlocProvider<NavigationBloc>(
             create: (context) => NavigationBloc(
               routeRepository: context.read<RouteRepository>(),
+              locationRepository: context.read<LocationRepository>(),
             ),
           ),
         ],

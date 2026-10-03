@@ -8,6 +8,8 @@ class NavProgress extends Equatable {
   final double remainingDurationSeconds;
   final double progressFraction;
   final bool isCompleted;
+  final bool isOffRoute;
+  final double deviationDistanceMeters;
 
   const NavProgress({
     required this.currentPosition,
@@ -16,6 +18,8 @@ class NavProgress extends Equatable {
     required this.remainingDurationSeconds,
     this.progressFraction = 0.0,
     this.isCompleted = false,
+    this.isOffRoute = false,
+    this.deviationDistanceMeters = 0.0,
   });
 
   @override
@@ -26,10 +30,12 @@ class NavProgress extends Equatable {
     remainingDurationSeconds,
     progressFraction,
     isCompleted,
+    isOffRoute,
+    deviationDistanceMeters,
   ];
 
   @override
   String toString() {
-    return 'NavProgress(pos: $currentPosition, bearing: $bearing, remDist: $remainingDistanceMeters, remSecs: $remainingDurationSeconds, done: $isCompleted)';
+    return 'NavProgress(pos: $currentPosition, bearing: $bearing, remDist: $remainingDistanceMeters, remSecs: $remainingDurationSeconds, done: $isCompleted, offRoute: $isOffRoute, dev: $deviationDistanceMeters)';
   }
 }
