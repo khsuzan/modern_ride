@@ -3,8 +3,6 @@ version = "1.0-SNAPSHOT"
 
 plugins {
     id("com.android.library")
-    kotlin("android")
-    kotlin("jvm")
 }
 
 android {
@@ -16,15 +14,17 @@ android {
     }
 
     compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     // Flutter plugins place Kotlin files in 'src/main/kotlin' by convention
     sourceSets {
         getByName("main") {
-            java.directories("src/main/kotlin")
+            java.srcDirs("src/main/kotlin")
         }
         getByName("test") {
-            java.directories("src/test/kotlin")
+            java.srcDirs("src/test/kotlin")
         }
     }
 
@@ -44,17 +44,17 @@ android {
 }
 
 kotlin {
-    // Aligns the Kotlin compilation toolchain with Java 17
-    jvmToolchain(17)
-    jvmToolchain(8)
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
 }
 
 dependencies {
-    compileOnly("io.flutter:flutter_embedding_debug:1.0.0")
     implementation("com.google.android.gms:play-services-location:21.4.0")
+    implementation("androidx.core:core-ktx:1.15.0")
+
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.mockito:mockito-core:5.0.0")
-    implementation(kotlin("stdlib-jdk8"))
 }
 repositories {
     mavenCentral()

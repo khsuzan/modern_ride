@@ -9,6 +9,11 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
+
+    buildFeatures {
+        resValues = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -34,24 +39,25 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
-    flavorDimensions "default"
+
+    flavorDimensions += "default"
 
     productFlavors {
-        dev {
-            dimension "default"
-            applicationIdSuffix ".dev"
-            resValue "string", "app_name", "NavTest Dev"
+        create("dev") {
+            dimension = "default"
+            applicationIdSuffix = ".dev"
+            resValue("string", "app_name", "NavTest Dev")
         }
-        prod {
-            dimension "default"
-            resValue "string", "app_name", "NavTest"
+        create("prod") {
+            dimension = "default"
+            resValue("string", "app_name", "NavTest")
         }
     }
 }
 
 kotlin {
     compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
