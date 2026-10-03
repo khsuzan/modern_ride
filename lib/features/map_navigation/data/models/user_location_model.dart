@@ -3,7 +3,7 @@ import 'package:modern_locate/modern_locate.dart';
 import '../../domain/entities/user_location.dart';
 
 class UserLocationModel extends UserLocation {
-  UserLocationModel({
+  const UserLocationModel({
     required super.latitude,
     required super.longitude,
     required super.heading,

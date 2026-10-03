@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:modern_locate/modern_locate.dart';
+import 'core/network/dio_factory.dart';
 import 'package:modern_ride/features/map_navigation/data/datasources/location_native_datasource.dart';
+import 'package:modern_ride/features/map_navigation/data/datasources/routing_remote_datasource.dart';
 import 'package:modern_ride/features/map_navigation/data/repositories/location_repository_impl.dart';
+import 'package:modern_ride/features/map_navigation/data/repositories/route_repository_impl.dart';
 import 'package:modern_ride/features/map_navigation/domain/repositories/location_repository.dart';
+import 'package:modern_ride/features/map_navigation/domain/repositories/route_repository.dart';
 import 'package:modern_ride/features/map_navigation/presentation/bloc/location_bloc/location_bloc.dart';
+import 'package:modern_ride/features/map_navigation/presentation/bloc/navigation_bloc/navigation_bloc.dart';
 
 import 'core/config/app_config.dart';
 import 'features/map_navigation/presentation/screens/map_screen.dart';
@@ -26,6 +31,13 @@ class MyApp extends StatelessWidget {
             return LocationRepositoryImpl(dataSource: dataSource);
           },
         ),
+        RepositoryProvider<RouteRepository>(
+          create: (context) {
+            final dio = DioFactory.create();
+            final dataSource = RouteRemoteDatasourceImpl(dio: dio);
+            return RouteRepositoryImpl(remoteDatasource: dataSource);
+          },
+        ),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -33,6 +45,11 @@ class MyApp extends StatelessWidget {
             create: (context) => LocationBloc(
               locationRepository: context.read<LocationRepository>(),
             )..add(CheckLocationPermission()),
+          ),
+          BlocProvider<NavigationBloc>(
+            create: (context) => NavigationBloc(
+              routeRepository: context.read<RouteRepository>(),
+            ),
           ),
         ],
         child: MaterialApp(
