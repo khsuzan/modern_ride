@@ -1,33 +1,35 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:modern_locate/models/location_permission_status.dart';
 import 'package:modern_locate/modern_locate.dart';
 import 'package:modern_locate/modern_locate_platform_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
-class MockModernLocatePlatform extends ModernLocatePlatform with MockPlatformInterfaceMixin {
+class MockModernLocatePlatform extends ModernLocatePlatform
+    with MockPlatformInterfaceMixin {
   @override
-  Future<LocationPermissionStatus> checkPermission() async => LocationPermissionStatus.granted;
+  Future<LocationPermissionStatus> checkPermission() async =>
+      LocationPermissionStatus.granted;
 
   @override
-  Future<LocationPermissionStatus> requestPermission() async => LocationPermissionStatus.granted;
+  Future<LocationPermissionStatus> requestPermission() async =>
+      LocationPermissionStatus.granted;
 
   @override
   Future<LocationData> getCurrentLocation() async => const LocationData(
-        latitude: 23.8103,
-        longitude: 90.4125,
-        heading: 0.0,
-        accuracy: 5.0,
-      );
+    latitude: 23.8103,
+    longitude: 90.4125,
+    heading: 0.0,
+    accuracy: 5.0,
+  );
 
   @override
   Stream<LocationData> getLocationStream() => Stream.value(
-        const LocationData(
-          latitude: 23.8103,
-          longitude: 90.4125,
-          heading: 0.0,
-          accuracy: 5.0,
-        ),
-      );
+    const LocationData(
+      latitude: 23.8103,
+      longitude: 90.4125,
+      heading: 0.0,
+      accuracy: 5.0,
+    ),
+  );
 
   @override
   Future<void> openAppSettings() async {}
@@ -44,7 +46,10 @@ void main() {
   });
 
   test('checkPermission delegates to platform instance', () async {
-    expect(await modernLocate.checkPermission(), LocationPermissionStatus.granted);
+    expect(
+      await modernLocate.checkPermission(),
+      LocationPermissionStatus.granted,
+    );
   });
 
   test('getCurrentLocation delegates to platform instance', () async {

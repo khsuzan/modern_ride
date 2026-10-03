@@ -1,4 +1,5 @@
 import 'package:modern_locate/modern_locate.dart';
+
 import '../../domain/entities/user_location.dart';
 
 class UserLocationModel extends UserLocation {
@@ -9,7 +10,7 @@ class UserLocationModel extends UserLocation {
     required super.accuracy,
   });
 
-  // প্লাগইনের LocationData থেকে UserLocationModel এ রূপান্তর
+  //
   factory UserLocationModel.fromPlugin(LocationData data) {
     return UserLocationModel(
       latitude: data.latitude,

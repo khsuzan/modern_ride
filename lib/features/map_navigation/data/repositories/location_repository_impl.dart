@@ -41,7 +41,6 @@ class LocationRepositoryImpl implements LocationRepository {
       final location = await dataSource.getCurrentLocation();
       return Success(location);
     } on Failure catch (e) {
-      // DataSource যে Failure থ্রো করছে, সেটাই সরাসরি Error-এ র‍্যাপ হবে
       return Error(e);
     } catch (e) {
       return Error(UnknownLocationFailure(e.toString()));

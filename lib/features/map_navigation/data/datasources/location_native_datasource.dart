@@ -14,24 +14,24 @@ abstract class LocationNativeDataSource {
 }
 
 class LocationNativeDataSourceImpl implements LocationNativeDataSource {
-  final ModernLocate _modernLocate;
+  final ModernLocate modernLocate;
 
-  LocationNativeDataSourceImpl({ModernLocate? modernLocate})
-    : _modernLocate = modernLocate ?? ModernLocate();
+  LocationNativeDataSourceImpl({required this.modernLocate});
 
   @override
   Future<LocationPermissionType> checkPermission() async {
     try {
-      final pluginStatus = await _modernLocate.checkPermission();
+      final pluginStatus = await modernLocate.checkPermission();
       return pluginStatus.toDomain();
     } catch (e) {
       throw const LocationPermissionDeniedFailure();
     }
   }
- @override
+
+  @override
   Future<LocationPermissionType> requestPermission() async {
     try {
-      final pluginStatus = await _modernLocate.requestPermission();
+      final pluginStatus = await modernLocate.requestPermission();
       return pluginStatus.toDomain();
     } catch (e) {
       throw const LocationPermissionDeniedFailure();
@@ -41,7 +41,7 @@ class LocationNativeDataSourceImpl implements LocationNativeDataSource {
   @override
   Future<UserLocationModel> getCurrentLocation() async {
     try {
-      final loc = await _modernLocate.getCurrentLocation();
+      final loc = await modernLocate.getCurrentLocation();
       return UserLocationModel.fromPlugin(loc);
     } on ModernLocatePermissionException {
       throw const LocationPermissionDeniedFailure();
@@ -58,13 +58,13 @@ class LocationNativeDataSourceImpl implements LocationNativeDataSource {
 
   @override
   Stream<UserLocationModel> getLocationStream() {
-    return _modernLocate.getLocationStream().map(
+    return modernLocate.getLocationStream().map(
       (loc) => UserLocationModel.fromPlugin(loc),
     );
   }
 
   @override
   Future<void> openAppSettings() async {
-    await _modernLocate.openAppSettings();
+    await modernLocate.openAppSettings();
   }
 }
