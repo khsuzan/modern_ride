@@ -8,20 +8,23 @@ void main() {
     setUpAll(() {
       AppConfig.current = const AppConfig(
         flavor: FlavorType.dev,
-        appTitle: 'NavTest Dev',
+        appTitle: 'ModernRide Dev',
         osrmBaseUrl: 'https://router.project-osrm.org',
         showDevBanner: true,
       );
     });
 
-    test('creates Dio with default configuration using AppConfig osrmBaseUrl', () {
-      final dio = DioFactory.create();
+    test(
+      'creates Dio with default configuration using AppConfig osrmBaseUrl',
+      () {
+        final dio = DioFactory.create();
 
-      expect(dio.options.baseUrl, equals('https://router.project-osrm.org'));
-      expect(dio.options.connectTimeout, equals(const Duration(seconds: 10)));
-      expect(dio.options.receiveTimeout, equals(const Duration(seconds: 10)));
-      expect(dio.options.headers['Accept'], equals('application/json'));
-    });
+        expect(dio.options.baseUrl, equals('https://router.project-osrm.org'));
+        expect(dio.options.connectTimeout, equals(const Duration(seconds: 10)));
+        expect(dio.options.receiveTimeout, equals(const Duration(seconds: 10)));
+        expect(dio.options.headers['Accept'], equals('application/json'));
+      },
+    );
 
     test('creates Dio with custom baseUrl and custom timeouts', () {
       const customUrl = 'https://custom-router.example.com';
