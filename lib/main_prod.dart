@@ -7,7 +7,7 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   AppConfig.current = const AppConfig(
     flavor: FlavorType.prod,
-    appTitle: 'NavTest',
+    appTitle: 'ModernRide',
     osrmBaseUrl: 'https://router.project-osrm.org',
     showDevBanner: false,
   );

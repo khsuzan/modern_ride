@@ -1,6 +1,5 @@
 // lib/app.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/config/app_config.dart';
 import 'features/map_navigation/presentation/screens/map_screen.dart';
 import 'features/map_navigation/presentation/widgets/dev_badge_banner.dart';
@@ -10,19 +9,15 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-      ],
-      child: MaterialApp(
-        title: AppConfig.current.appTitle,
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-          useMaterial3: true,
-        ),
-        home: const FlavorBanner(
-          child: MapScreen(),
-        ),
+    return MaterialApp(
+      title: AppConfig.current.appTitle,
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        useMaterial3: true,
+      ),
+      home: const FlavorBanner(
+        child: MapScreen(),
       ),
     );
   }
