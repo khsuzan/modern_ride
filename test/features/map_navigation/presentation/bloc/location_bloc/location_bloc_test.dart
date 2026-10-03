@@ -33,6 +33,27 @@ void main() {
 
   group('CheckLocationPermission', () {
     blocTest<LocationBloc, LocationState>(
+      'starts location tracking when permission is already granted',
+      build: () {
+        when(() => mockLocationRepository.checkPermission()).thenAnswer(
+          (_) async => const Success(LocationPermissionType.granted),
+        );
+        when(() => mockLocationRepository.getLocationStream()).thenAnswer(
+          (_) => Stream.value(Success(testLocation)),
+        );
+        return buildBloc();
+      },
+      act: (bloc) => bloc.add(CheckLocationPermission()),
+      expect: () => [
+        LocationLoaded(userLocation: testLocation),
+      ],
+      verify: (_) {
+        verify(() => mockLocationRepository.checkPermission()).called(1);
+        verify(() => mockLocationRepository.getLocationStream()).called(1);
+      },
+    );
+
+    blocTest<LocationBloc, LocationState>(
       'emits [LocationPermissionDenied(isPermanentlyDenied: false)] when permission is denied',
       build: () {
         when(() => mockLocationRepository.checkPermission()).thenAnswer(
@@ -86,13 +107,13 @@ void main() {
 
   group('RequestLocationPermission', () {
     blocTest<LocationBloc, LocationState>(
-      'emits [LocationLoading, LocationLoaded] when permission granted and coordinates fetched',
+      'starts location tracking when permission is granted by user',
       build: () {
         when(() => mockLocationRepository.requestPermission()).thenAnswer(
           (_) async => const Success(LocationPermissionType.granted),
         );
-        when(() => mockLocationRepository.getCurrentLocation()).thenAnswer(
-          (_) async => Success(testLocation),
+        when(() => mockLocationRepository.getLocationStream()).thenAnswer(
+          (_) => Stream.value(Success(testLocation)),
         );
         return buildBloc();
       },
@@ -103,7 +124,7 @@ void main() {
       ],
       verify: (_) {
         verify(() => mockLocationRepository.requestPermission()).called(1);
-        verify(() => mockLocationRepository.getCurrentLocation()).called(1);
+        verify(() => mockLocationRepository.getLocationStream()).called(1);
       },
     );
 
@@ -161,6 +182,40 @@ void main() {
       verify: (_) {
         verify(() => mockLocationRepository.requestPermission()).called(1);
       },
+    );
+  });
+
+  group('Continuous Location Tracking', () {
+    blocTest<LocationBloc, LocationState>(
+      'emits LocationLoaded on new incoming coordinates',
+      build: () {
+        when(() => mockLocationRepository.getLocationStream()).thenAnswer(
+          (_) => Stream.fromIterable([Success(testLocation)]),
+        );
+        return buildBloc();
+      },
+      act: (bloc) => bloc.add(StartLocationTracking()),
+      expect: () => [
+        LocationLoaded(userLocation: testLocation),
+      ],
+      verify: (_) {
+        verify(() => mockLocationRepository.getLocationStream()).called(1);
+      },
+    );
+
+    blocTest<LocationBloc, LocationState>(
+      'stops listening when StopLocationTracking is dispatched',
+      build: () {
+        when(() => mockLocationRepository.getLocationStream()).thenAnswer(
+          (_) => const Stream.empty(),
+        );
+        return buildBloc();
+      },
+      act: (bloc) {
+        bloc.add(StartLocationTracking());
+        bloc.add(StopLocationTracking());
+      },
+      expect: () => [],
     );
   });
 
