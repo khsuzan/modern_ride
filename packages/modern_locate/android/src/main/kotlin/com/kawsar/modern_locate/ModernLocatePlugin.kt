@@ -261,6 +261,10 @@ class ModernLocatePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Event
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        locationCallback?.let {
+            fusedLocationClient.removeLocationUpdates(it)
+            locationCallback = null
+        }
         methodChannel.setMethodCallHandler(null)
         eventChannel.setStreamHandler(null)
     }
