@@ -78,7 +78,7 @@ class NavigationMapView extends StatelessWidget {
         // Markers Layer (User Location, Pickup & Destination)
         MarkerLayer(
           markers: [
-            if (!isNavigating) ...[
+            if (!isNavigating && navState is! NavigationCompleted) ...[
               // When unified: combines live radar beam with floating hailing badge
               if (isPickupAtMyLocation)
                 Marker(
@@ -103,8 +103,9 @@ class NavigationMapView extends StatelessWidget {
                 if (navState.pickup != null)
                   Marker(
                     point: navState.pickup!,
-                    width: 84,
-                    height: 84,
+                    width: 26,
+                    height: 43,
+                    alignment: Alignment.topCenter,
                     child: PickupLocationMarker(
                       position: navState.pickup!,
                       isUnifiedWithMyLocation: false,
@@ -112,23 +113,44 @@ class NavigationMapView extends StatelessWidget {
                   ),
               ],
             ],
-            // Destination Marker (Uber/Pathao ball dot with animated drop)
+            // On ride completion: clear pickup and destination markers; show current user GPS location if available
+            if (navState is NavigationCompleted && userLocation != null)
+              Marker(
+                point: userLocation!.toLatLng,
+                width: 84,
+                height: 84,
+                child: UserLocationMarker(location: userLocation!),
+              ),
+            // Destination Marker (Uber/Pathao ball on 2/3 height pen handle with animated drop)
             if (navState.destination != null && navState is! NavigationCompleted)
               Marker(
                 point: navState.destination!,
-                width: 56,
-                height: 56,
+                width: 28,
+                height: 42,
+                alignment: Alignment.topCenter,
                 child: DestinationMarker(
                   destination: navState.destination!,
                 ),
               ),
           ],
         ),
-        // Oriented Car Marker Layer (during active navigation)
+        // Oriented Car Marker Layer (during active navigation and parked at final arrival destination)
         if (isNavigating)
           CarMarkerLayer(
             position: (navState as Navigating).progress.currentPosition,
             bearing: (navState as Navigating).progress.bearing,
+          )
+        else if (navState is NavigationCompleted)
+          CarMarkerLayer(
+            position: (navState as NavigationCompleted).finalPosition,
+            bearing: (navState as NavigationCompleted).route.points.length >= 2
+                ? NavigationMath.calculateBearing(
+                    (navState as NavigationCompleted)
+                        .route
+                        .points[(navState as NavigationCompleted).route.points.length - 2],
+                    (navState as NavigationCompleted).finalPosition,
+                  )
+                : 0.0,
           ),
       ],
     );

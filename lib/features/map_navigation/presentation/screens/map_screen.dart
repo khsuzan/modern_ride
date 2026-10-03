@@ -131,16 +131,18 @@ class _MapScreenState extends State<MapScreen> {
               return Scaffold(
                 body: Stack(
                   children: [
-                    // 1. OpenStreetMap View (renders edge-to-edge)
-                    NavigationMapView(
-                      mapController: _mapController,
-                      initialCenter: _defaultCenter,
-                      navState: navState,
-                      userLocation:
-                          locState is LocationLoaded ? locState.userLocation : null,
-                      onTap: _onMapTap,
-                      onLongPress: _onMapLongPress,
-                      onPositionChanged: _onPositionChanged,
+                    // 1. OpenStreetMap View (renders edge-to-edge on isolated GPU layer)
+                    RepaintBoundary(
+                      child: NavigationMapView(
+                        mapController: _mapController,
+                        initialCenter: _defaultCenter,
+                        navState: navState,
+                        userLocation:
+                            locState is LocationLoaded ? locState.userLocation : null,
+                        onTap: _onMapTap,
+                        onLongPress: _onMapLongPress,
+                        onPositionChanged: _onPositionChanged,
+                      ),
                     ),
 
                     // 2. Positional Overlay Views wrapped in SafeArea

@@ -46,11 +46,11 @@ android {
         create("dev") {
             dimension = "default"
             applicationIdSuffix = ".dev"
-            resValue("string", "app_name", "NavTest Dev")
+            resValue("string", "app_name", "ModernRide Dev")
         }
         create("prod") {
             dimension = "default"
-            resValue("string", "app_name", "NavTest")
+            resValue("string", "app_name", "ModernRide")
         }
     }
 }

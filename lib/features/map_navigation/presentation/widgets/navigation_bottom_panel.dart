@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
@@ -9,12 +11,16 @@ import 'package:modern_ride/features/map_navigation/presentation/widgets/navigat
 
 /// Bottom sheet panel container that renders contextual controls and information
 /// based on the current [NavigationState] and [LocationState].
-class NavigationBottomPanel extends StatelessWidget {
+///
+/// Features a choreographed entrance delay and [RepaintBoundary] so the map camera
+/// and tiles settle completely before the panel slides in, preventing UI thread stutter.
+class NavigationBottomPanel extends StatefulWidget {
   final NavigationState navState;
   final LocationState locState;
   final RideNavigationMode selectedMode;
   final ValueChanged<RideNavigationMode> onModeChanged;
   final VoidCallback onStartRide;
+  final Duration entranceDelay;
 
   const NavigationBottomPanel({
     super.key,
@@ -23,22 +29,90 @@ class NavigationBottomPanel extends StatelessWidget {
     required this.selectedMode,
     required this.onModeChanged,
     required this.onStartRide,
+    this.entranceDelay = const Duration(milliseconds: 350),
   });
 
   @override
+  State<NavigationBottomPanel> createState() => _NavigationBottomPanelState();
+}
+
+class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
+  Timer? _delayTimer;
+  bool _hasEnteredOnce = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkEntrance();
+  }
+
+  @override
+  void didUpdateWidget(covariant NavigationBottomPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _checkEntrance();
+  }
+
+  void _checkEntrance() {
+    final shouldBeHidden = widget.navState is NavigationInitial &&
+        (widget.locState is LocationInitial || widget.locState is LocationLoading);
+
+    if (shouldBeHidden) {
+      _delayTimer?.cancel();
+      _delayTimer = null;
+      if (_hasEnteredOnce) {
+        setState(() => _hasEnteredOnce = false);
+      }
+      return;
+    }
+
+    // When condition to show is met for the first time, allow map tiles and camera
+    // to settle smoothly before triggering the slide-up animation.
+    if (!_hasEnteredOnce && _delayTimer == null) {
+      if (widget.entranceDelay == Duration.zero) {
+        _hasEnteredOnce = true;
+      } else {
+        _delayTimer = Timer(widget.entranceDelay, () {
+          if (mounted) {
+            setState(() => _hasEnteredOnce = true);
+          }
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _delayTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Positioned(
+    final shouldBeHidden = widget.navState is NavigationInitial &&
+        (widget.locState is LocationInitial || widget.locState is LocationLoading);
+    final isHidden = shouldBeHidden || !_hasEnteredOnce;
+
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.easeOutCubic,
       left: 16,
       right: 16,
-      bottom: 16,
-      child: SafeArea(
-        child: Material(
-          elevation: 8,
-          borderRadius: BorderRadius.circular(16),
-          color: Colors.white,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: _buildContent(context),
+      bottom: isHidden ? -260 : 16,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOut,
+        opacity: isHidden ? 0.0 : 1.0,
+        child: RepaintBoundary(
+          child: SafeArea(
+            child: Material(
+              elevation: 8,
+              borderRadius: BorderRadius.circular(16),
+              color: Colors.white,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: isHidden ? const SizedBox.shrink() : _buildContent(context),
+              ),
+            ),
           ),
         ),
       ),
@@ -46,34 +120,13 @@ class NavigationBottomPanel extends StatelessWidget {
   }
 
   Widget _buildContent(BuildContext context) {
-    if (locState is LocationLoading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            SizedBox(width: 12),
-            Text(
-              'Acquiring location...',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return switch (navState) {
-      NavigationInitial() => _buildInitialPanel(context, locState),
+    return switch (widget.navState) {
+      NavigationInitial() => _buildInitialPanel(context, widget.locState),
       PickupSelected(:final pickup) => _buildPickupSelectedPanel(context, pickup),
       DestinationSelectionReady() => _buildDestinationPromptPanel(context),
       RouteLoading() => _buildRouteLoadingPanel(),
       RouteReady(:final route) => _buildRouteReadyPanel(context, route),
-      Navigating() => NavigationHud(state: navState as Navigating),
+      Navigating() => NavigationHud(state: widget.navState as Navigating),
       NavigationCompleted(:final route) => _buildCompletedPanel(context, route),
       RouteFailureState(:final message) => _buildRouteFailurePanel(context, message),
     };
@@ -140,8 +193,9 @@ class NavigationBottomPanel extends StatelessWidget {
   }
 
   Widget _buildPickupSelectedPanel(BuildContext context, LatLng pickup) {
-    final userLocation =
-        locState is LocationLoaded ? (locState as LocationLoaded).userLocation : null;
+    final userLocation = widget.locState is LocationLoaded
+        ? (widget.locState as LocationLoaded).userLocation
+        : null;
     final isAtUserLocation = userLocation != null &&
         (pickup.latitude - userLocation.latitude).abs() < 0.0001 &&
         (pickup.longitude - userLocation.longitude).abs() < 0.0001;
@@ -290,8 +344,8 @@ class NavigationBottomPanel extends StatelessWidget {
               icon: Icon(Icons.gps_fixed, size: 18),
             ),
           ],
-          selected: {selectedMode},
-          onSelectionChanged: (modes) => onModeChanged(modes.first),
+          selected: {widget.selectedMode},
+          onSelectionChanged: (modes) => widget.onModeChanged(modes.first),
         ),
         const SizedBox(height: 12),
         ElevatedButton(
@@ -300,9 +354,9 @@ class NavigationBottomPanel extends StatelessWidget {
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 12),
           ),
-          onPressed: onStartRide,
+          onPressed: widget.onStartRide,
           child: Text(
-            selectedMode == RideNavigationMode.simulation
+            widget.selectedMode == RideNavigationMode.simulation
                 ? 'START SIMULATION'
                 : 'START REAL RIDE',
             style: const TextStyle(fontWeight: FontWeight.bold),
