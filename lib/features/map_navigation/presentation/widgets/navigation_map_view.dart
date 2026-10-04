@@ -7,6 +7,7 @@ import 'package:modern_ride/features/map_navigation/domain/entities/user_locatio
 import 'package:modern_ride/features/map_navigation/presentation/bloc/navigation_bloc/navigation_bloc.dart';
 import 'package:modern_ride/features/map_navigation/presentation/widgets/car_marker_layer.dart';
 import 'package:modern_ride/features/map_navigation/presentation/widgets/destination_marker.dart';
+import 'package:modern_ride/features/map_navigation/presentation/widgets/map_attribution_tag.dart';
 import 'package:modern_ride/features/map_navigation/presentation/widgets/pickup_location_marker.dart';
 import 'package:modern_ride/features/map_navigation/presentation/widgets/user_location_marker.dart';
 
@@ -63,10 +64,7 @@ class NavigationMapView extends StatelessWidget {
           urlTemplate: AppConstants.osmUrlTemplate,
           userAgentPackageName: 'com.kawsar.modern_ride',
         ),
-        SimpleAttributionWidget(
-          source: const Text(AppConstants.osmAttribution),
-          alignment: Alignment.topRight,
-        ),
+        const MapAttributionTag(),
         // Route Polyline Layer (hidden when ride is completed)
         PolylineLayer(
           polylines: [
