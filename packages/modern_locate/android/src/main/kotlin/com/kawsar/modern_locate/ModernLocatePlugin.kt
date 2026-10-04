@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.IntentSender
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.net.Uri
@@ -11,6 +12,7 @@ import android.os.Looper
 import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.*
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
@@ -21,7 +23,7 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.PluginRegistry
 
 class ModernLocatePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChannel.StreamHandler, ActivityAware,
-    PluginRegistry.RequestPermissionsResultListener {
+    PluginRegistry.RequestPermissionsResultListener, PluginRegistry.ActivityResultListener {
 
     private lateinit var methodChannel: MethodChannel
     private lateinit var eventChannel: EventChannel
@@ -34,6 +36,7 @@ class ModernLocatePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Event
 
     private var pendingPermissionResult: MethodChannel.Result? = null
     private val PERMISSION_REQUEST_CODE = 4401
+    private val GPS_RESOLUTION_REQUEST_CODE = 4402
 
     private val PREFS_NAME = "modern_locate_prefs"
     private val KEY_REQUESTED_ONCE = "permission_requested_once"
@@ -90,7 +93,7 @@ class ModernLocatePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Event
     }
 
     private fun handleCheckPermission(result: MethodChannel.Result) {
-        if (hasPermission()) {
+        if (hasPermission() && isGpsEnabled()) {
             result.success("granted")
             return
         }
@@ -105,7 +108,7 @@ class ModernLocatePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Event
             act, Manifest.permission.ACCESS_FINE_LOCATION
         )
 
-        if (hasRequestedOnce() && !shouldShowRationale) {
+        if (hasRequestedOnce() && !shouldShowRationale && !hasPermission()) {
             result.success("permanently_denied")
         } else {
             result.success("denied")
@@ -113,23 +116,65 @@ class ModernLocatePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Event
     }
 
     private fun handleRequestPermission(result: MethodChannel.Result) {
-        if (hasPermission()) {
-            result.success("granted")
-            return
-        }
         val currentActivity = activity
         if (currentActivity == null) {
             result.error("NO_ACTIVITY", "Activity not available", null)
             return
         }
 
-        markPermissionRequested()
-        pendingPermissionResult = result
-        ActivityCompat.requestPermissions(
-            currentActivity,
-            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
-            PERMISSION_REQUEST_CODE
-        )
+        if (!hasPermission()) {
+            markPermissionRequested()
+            pendingPermissionResult = result
+            ActivityCompat.requestPermissions(
+                currentActivity,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+                PERMISSION_REQUEST_CODE
+            )
+            return
+        }
+
+        if (!isGpsEnabled()) {
+            pendingPermissionResult = result
+            promptEnableGps(currentActivity)
+            return
+        }
+
+        result.success("granted")
+    }
+
+    private fun promptEnableGps(act: Activity) {
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 2000L).build()
+        val builder = LocationSettingsRequest.Builder()
+            .addLocationRequest(locationRequest)
+            .setAlwaysShow(true)
+
+        val client: SettingsClient = LocationServices.getSettingsClient(act)
+        client.checkLocationSettings(builder.build())
+            .addOnSuccessListener {
+                pendingPermissionResult?.success("granted")
+                pendingPermissionResult = null
+            }
+            .addOnFailureListener { exception ->
+                if (exception is ResolvableApiException) {
+                    try {
+                        exception.startResolutionForResult(act, GPS_RESOLUTION_REQUEST_CODE)
+                    } catch (sendEx: IntentSender.SendIntentException) {
+                        launchLocationSettingsFallback(act)
+                    }
+                } else {
+                    launchLocationSettingsFallback(act)
+                }
+            }
+    }
+
+    private fun launchLocationSettingsFallback(act: Activity) {
+        try {
+            val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+            act.startActivityForResult(intent, GPS_RESOLUTION_REQUEST_CODE)
+        } catch (e: Exception) {
+            pendingPermissionResult?.success("denied")
+            pendingPermissionResult = null
+        }
     }
 
     override fun onRequestPermissionsResult(
@@ -139,7 +184,13 @@ class ModernLocatePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Event
     ): Boolean {
         if (requestCode == PERMISSION_REQUEST_CODE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                pendingPermissionResult?.success("granted")
+                val act = activity
+                if (act != null && !isGpsEnabled()) {
+                    promptEnableGps(act)
+                } else {
+                    pendingPermissionResult?.success("granted")
+                    pendingPermissionResult = null
+                }
             } else {
                 val act = activity
                 val permanentlyDenied = if (act != null) {
@@ -151,6 +202,19 @@ class ModernLocatePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Event
                 } else {
                     pendingPermissionResult?.success("denied")
                 }
+                pendingPermissionResult = null
+            }
+            return true
+        }
+        return false
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
+        if (requestCode == GPS_RESOLUTION_REQUEST_CODE) {
+            if (resultCode == Activity.RESULT_OK || isGpsEnabled()) {
+                pendingPermissionResult?.success("granted")
+            } else {
+                pendingPermissionResult?.success("denied")
             }
             pendingPermissionResult = null
             return true
@@ -248,10 +312,12 @@ class ModernLocatePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Event
         activity = binding.activity
         activityBinding = binding
         binding.addRequestPermissionsResultListener(this)
+        binding.addActivityResultListener(this)
     }
 
     override fun onDetachedFromActivityForConfigChanges() {
         activityBinding?.removeRequestPermissionsResultListener(this)
+        activityBinding?.removeActivityResultListener(this)
         activity = null
         activityBinding = null
     }
@@ -262,6 +328,7 @@ class ModernLocatePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Event
 
     override fun onDetachedFromActivity() {
         activityBinding?.removeRequestPermissionsResultListener(this)
+        activityBinding?.removeActivityResultListener(this)
         activity = null
         activityBinding = null
     }

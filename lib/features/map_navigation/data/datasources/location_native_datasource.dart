@@ -58,7 +58,17 @@ class LocationNativeDataSourceImpl implements LocationNativeDataSource {
 
   @override
   Stream<UserLocationModel> getLocationStream() {
-    return modernLocate.getLocationStream().map(
+    return modernLocate.getLocationStream().handleError((e) {
+      if (e is ModernLocateGpsDisabledException) {
+        throw const LocationServicesDisabledFailure();
+      } else if (e is ModernLocatePermissionException) {
+        throw const LocationPermissionDeniedFailure();
+      } else if (e is ModernLocateException) {
+        throw UnknownLocationFailure(e.message);
+      } else {
+        throw UnknownLocationFailure(e.toString());
+      }
+    }).map(
       (loc) => UserLocationModel.fromPlugin(loc),
     );
   }
