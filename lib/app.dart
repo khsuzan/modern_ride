@@ -57,8 +57,28 @@ class MyApp extends StatelessWidget {
           title: AppConfig.current.appTitle,
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF1E88E5),
+              primary: const Color(0xFF1E88E5),
+            ),
             useMaterial3: true,
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1E88E5),
+                foregroundColor: Colors.white,
+                elevation: 6,
+                shadowColor: const Color(0x731E88E5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                textStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
           ),
           home: const FlavorBanner(child: MapScreen()),
         ),

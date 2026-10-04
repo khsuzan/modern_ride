@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:modern_ride/core/utils/navigation_math.dart';
 
 /// Senior-standard map camera animator handling 60fps curved transitions,
 /// bounds framing, and gesture preemption without ticker or memory leaks.
@@ -120,6 +121,45 @@ class MapCameraAnimator {
           );
         } catch (_) {}
       });
+    }
+  }
+
+  /// Tracks the vehicle position during active navigation.
+  ///
+  /// If the vehicle shifts significantly ([jumpThresholdMeters], e.g. off-route deviation
+  /// or rerouting), the camera glides smoothly to the new position using [Curves.easeOutCubic].
+  /// During steady navigation updates (< [jumpThresholdMeters]), it updates the camera center
+  /// directly without interrupting any active transition.
+  void trackVehicle(
+    LatLng targetPosition, {
+    double minZoom = 16.0,
+    double jumpThresholdMeters = 8.0,
+  }) {
+    if (isAnimating) return;
+
+    MapCamera camera;
+    try {
+      camera = mapController.camera;
+    } catch (_) {
+      return;
+    }
+
+    final targetZoom = camera.zoom < minZoom ? minZoom : camera.zoom;
+    final distance = NavigationMath.haversineDistance(
+      camera.center,
+      targetPosition,
+    );
+    final zoomDelta = (camera.zoom - targetZoom).abs();
+
+    if (distance > jumpThresholdMeters || zoomDelta > 0.5) {
+      animateTo(
+        destLocation: targetPosition,
+        destZoom: targetZoom,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOutCubic,
+      );
+    } else {
+      mapController.move(targetPosition, targetZoom);
     }
   }
 

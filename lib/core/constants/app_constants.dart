@@ -1,5 +1,10 @@
+import 'package:latlong2/latlong.dart';
+
 class AppConstants {
   const AppConstants._();
+
+  /// Default center coordinates for initial map rendering (Dhaka, Bangladesh).
+  static const LatLng defaultMapCenter = LatLng(23.8103, 90.4125);
 
   /// Distance threshold in meters beyond which a live vehicle is considered off-route.
   static const double offRouteThresholdMeters = 50.0;

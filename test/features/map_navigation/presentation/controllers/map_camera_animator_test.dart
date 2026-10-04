@@ -114,6 +114,69 @@ void main() {
 
     expect(animator.isAnimating, isFalse);
   });
+
+  testWidgets(
+    'trackVehicle moves camera directly when shift is below jump threshold',
+    (tester) async {
+      final mapController = MapController();
+      late MapCameraAnimator animator;
+
+      await tester.pumpWidget(
+        createSubject(mapController: mapController, onReady: (a) => animator = a),
+      );
+      await tester.pumpAndSettle();
+
+      // Ensure initial zoom is at minZoom (16.0)
+      mapController.move(initialCenter, 16.0);
+      await tester.pumpAndSettle();
+
+      // Small 2m shift: 0.00002 deg latitude is ~2.2 meters
+      const slightShift = LatLng(23.81032, 90.4125);
+      animator.trackVehicle(slightShift, minZoom: 16.0, jumpThresholdMeters: 8.0);
+
+      // Should not trigger an AnimationController
+      expect(animator.isAnimating, isFalse);
+      expect(
+        mapController.camera.center.latitude,
+        closeTo(slightShift.latitude, 0.00001),
+      );
+    },
+  );
+
+  testWidgets(
+    'trackVehicle triggers smooth easeOut animation when deviation exceeds threshold',
+    (tester) async {
+      final mapController = MapController();
+      late MapCameraAnimator animator;
+
+      await tester.pumpWidget(
+        createSubject(mapController: mapController, onReady: (a) => animator = a),
+      );
+      await tester.pumpAndSettle();
+
+      mapController.move(initialCenter, 16.0);
+      await tester.pumpAndSettle();
+
+      // Significant shift (e.g. 60m test off-route deviation): ~0.0006 deg is ~66 meters
+      const deviationShift = LatLng(23.8109, 90.4125);
+      animator.trackVehicle(deviationShift, minZoom: 16.0, jumpThresholdMeters: 8.0);
+
+      // Must start smooth animation
+      expect(animator.isAnimating, isTrue);
+
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(animator.isAnimating, isTrue);
+
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+
+      expect(animator.isAnimating, isFalse);
+      expect(
+        mapController.camera.center.latitude,
+        closeTo(deviationShift.latitude, 0.0001),
+      );
+    },
+  );
 }
 
 class _TestMapWrapper extends StatefulWidget {

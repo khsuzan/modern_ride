@@ -63,10 +63,9 @@ class NavigationMapView extends StatelessWidget {
           urlTemplate: AppConstants.osmUrlTemplate,
           userAgentPackageName: 'com.kawsar.modern_ride',
         ),
-        RichAttributionWidget(
-          attributions: const [
-            TextSourceAttribution(AppConstants.osmAttribution),
-          ],
+        SimpleAttributionWidget(
+          source: const Text(AppConstants.osmAttribution),
+          alignment: Alignment.topRight,
         ),
         // Route Polyline Layer (hidden when ride is completed)
         PolylineLayer(

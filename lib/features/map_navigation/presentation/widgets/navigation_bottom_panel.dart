@@ -9,30 +9,79 @@ import 'package:modern_ride/features/map_navigation/presentation/widgets/navigat
 
 /// Declarative bottom panel container rendering contextual navigation controls
 /// and ride information purely derived from [NavigationState] and [LocationState].
-class NavigationBottomPanel extends StatelessWidget {
+/// Declarative bottom panel container rendering contextual navigation controls
+/// and ride information purely derived from [NavigationState] and [LocationState].
+class NavigationBottomPanel extends StatefulWidget {
   final NavigationState navState;
   final LocationState locState;
-  final RideNavigationMode selectedMode;
-  final ValueChanged<RideNavigationMode> onModeChanged;
-  final VoidCallback onStartRide;
+  final RideNavigationMode? selectedMode;
+  final ValueChanged<RideNavigationMode>? onModeChanged;
+  final dynamic onStartRide;
   final Duration entranceDelay;
 
   const NavigationBottomPanel({
     super.key,
     required this.navState,
     required this.locState,
-    required this.selectedMode,
-    required this.onModeChanged,
-    required this.onStartRide,
+    this.selectedMode,
+    this.onModeChanged,
+    this.onStartRide,
     this.entranceDelay = Duration.zero,
   });
+
+  @override
+  State<NavigationBottomPanel> createState() => _NavigationBottomPanelState();
+}
+
+class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
+  late RideNavigationMode _internalMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _internalMode = widget.selectedMode ?? RideNavigationMode.simulation;
+  }
+
+  @override
+  void didUpdateWidget(covariant NavigationBottomPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedMode != null &&
+        widget.selectedMode != oldWidget.selectedMode) {
+      _internalMode = widget.selectedMode!;
+    }
+  }
+
+  RideNavigationMode get _effectiveMode =>
+      widget.selectedMode ?? _internalMode;
+
+  void _onModeChanged(RideNavigationMode mode) {
+    setState(() => _internalMode = mode);
+    widget.onModeChanged?.call(mode);
+  }
+
+  void _triggerStartRide() {
+    final callback = widget.onStartRide;
+    if (callback != null) {
+      if (callback is ValueChanged<RideNavigationMode>) {
+        callback(_effectiveMode);
+      } else if (callback is VoidCallback) {
+        callback();
+      } else {
+        try {
+          (callback as dynamic)(_effectiveMode);
+        } catch (_) {
+          (callback as dynamic)();
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     // Declarative visibility: smoothly hidden only while initial GPS state is undetermined
     final isPanelVisible =
-        !(navState is NavigationInitial &&
-            (locState is LocationInitial || locState is LocationLoading));
+        !(widget.navState is NavigationInitial &&
+            (widget.locState is LocationInitial || widget.locState is LocationLoading));
 
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 380),
@@ -64,8 +113,8 @@ class NavigationBottomPanel extends StatelessWidget {
   }
 
   Widget _buildContent(BuildContext context) {
-    return switch (navState) {
-      NavigationInitial() => _buildInitialPanel(context, locState),
+    return switch (widget.navState) {
+      NavigationInitial() => _buildInitialPanel(context, widget.locState),
       PickupSelected(:final pickup) => _buildPickupSelectedPanel(
         context,
         pickup,
@@ -73,7 +122,7 @@ class NavigationBottomPanel extends StatelessWidget {
       DestinationSelectionReady() => _buildDestinationPromptPanel(context),
       RouteLoading() => _buildRouteLoadingPanel(),
       RouteReady(:final route) => _buildRouteReadyPanel(context, route),
-      Navigating() => NavigationHud(state: navState as Navigating),
+      Navigating() => NavigationHud(state: widget.navState as Navigating),
       NavigationCompleted(:final route) => _buildCompletedPanel(context, route),
       RouteFailureState(:final message) => _buildRouteFailurePanel(
         context,
@@ -145,8 +194,8 @@ class NavigationBottomPanel extends StatelessWidget {
   }
 
   Widget _buildPickupSelectedPanel(BuildContext context, LatLng pickup) {
-    final userLocation = locState is LocationLoaded
-        ? (locState as LocationLoaded).userLocation
+    final userLocation = widget.locState is LocationLoaded
+        ? (widget.locState as LocationLoaded).userLocation
         : null;
     final isAtUserLocation =
         userLocation != null &&
@@ -303,19 +352,14 @@ class NavigationBottomPanel extends StatelessWidget {
               icon: Icon(Icons.gps_fixed, size: 18),
             ),
           ],
-          selected: {selectedMode},
-          onSelectionChanged: (modes) => onModeChanged(modes.first),
+          selected: {_effectiveMode},
+          onSelectionChanged: (modes) => _onModeChanged(modes.first),
         ),
         const SizedBox(height: 12),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-          ),
-          onPressed: onStartRide,
+          onPressed: _triggerStartRide,
           child: Text(
-            selectedMode == RideNavigationMode.simulation
+            _effectiveMode == RideNavigationMode.simulation
                 ? 'START SIMULATION'
                 : 'START REAL RIDE',
             style: const TextStyle(fontWeight: FontWeight.bold),
@@ -350,8 +394,8 @@ class NavigationBottomPanel extends StatelessWidget {
         const SizedBox(height: 14),
         ElevatedButton(
           onPressed: () {
-            final userLoc = locState is LocationLoaded
-                ? (locState as LocationLoaded).userLocation.toLatLng
+            final userLoc = widget.locState is LocationLoaded
+                ? (widget.locState as LocationLoaded).userLocation.toLatLng
                 : null;
             context.read<NavigationBloc>().add(StartNewRide(userLoc));
           },

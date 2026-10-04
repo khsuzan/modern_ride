@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:modern_ride/features/map_navigation/domain/entities/ride_navigation_mode.dart';
+import 'package:modern_ride/core/constants/app_constants.dart';
 import 'package:modern_ride/features/map_navigation/presentation/bloc/location_bloc/location_bloc.dart';
 import 'package:modern_ride/features/map_navigation/presentation/bloc/navigation_bloc/navigation_bloc.dart';
 import 'package:modern_ride/features/map_navigation/presentation/controllers/map_camera_animator.dart';
@@ -23,10 +23,6 @@ class _MapScreenState extends State<MapScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   late final MapController _mapController;
   late final MapCameraAnimator _cameraAnimator;
-  NavigationState? _previousNavState;
-
-  static const LatLng _defaultCenter = LatLng(23.8103, 90.4125);
-  RideNavigationMode _selectedNavigationMode = RideNavigationMode.simulation;
 
   @override
   void initState() {
@@ -104,8 +100,6 @@ class _MapScreenState extends State<MapScreen>
 
   void _onNavigationStateChanged(BuildContext context, NavigationState state) {
     if (!mounted) return;
-    final prevState = _previousNavState;
-    _previousNavState = state;
 
     if (state is RouteReady && state.route.points.isNotEmpty) {
       final bounds = LatLngBounds.fromPoints(state.route.points);
@@ -121,20 +115,8 @@ class _MapScreenState extends State<MapScreen>
     } else if (state is DestinationSelectionReady) {
       _cameraAnimator.animateTo(destLocation: state.pickup, destZoom: 16.0);
     } else if (state is Navigating) {
-      if (prevState is! Navigating) {
-        _cameraAnimator.animateTo(
-          destLocation: state.progress.currentPosition,
-          destZoom: 16.0,
-        );
-      } else if (state.isCameraFollowing) {
-        if (!_cameraAnimator.isAnimating) {
-          _mapController.move(
-            state.progress.currentPosition,
-            _mapController.camera.zoom < 15.0
-                ? 16.0
-                : _mapController.camera.zoom,
-          );
-        }
+      if (state.isCameraFollowing) {
+        _cameraAnimator.trackVehicle(state.progress.currentPosition);
       }
     } else if (state is RouteFailureState) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -171,7 +153,7 @@ class _MapScreenState extends State<MapScreen>
                     RepaintBoundary(
                       child: NavigationMapView(
                         mapController: _mapController,
-                        initialCenter: _defaultCenter,
+                        initialCenter: AppConstants.defaultMapCenter,
                         navState: navState,
                         userLocation: locState is LocationLoaded
                             ? locState.userLocation
@@ -191,6 +173,9 @@ class _MapScreenState extends State<MapScreen>
                             isVisible: isRecenterVisible,
                             onRecenter: () {
                               if (navState is Navigating) {
+                                context.read<NavigationBloc>().add(
+                                  const RecenterCamera(),
+                                );
                                 _cameraAnimator.animateTo(
                                   destLocation:
                                       navState.progress.currentPosition,
@@ -204,13 +189,9 @@ class _MapScreenState extends State<MapScreen>
                           NavigationBottomPanel(
                             navState: navState,
                             locState: locState,
-                            selectedMode: _selectedNavigationMode,
-                            onModeChanged: (mode) {
-                              setState(() => _selectedNavigationMode = mode);
-                            },
-                            onStartRide: () {
+                            onStartRide: (mode) {
                               context.read<NavigationBloc>().add(
-                                StartNavigation(mode: _selectedNavigationMode),
+                                StartNavigation(mode: mode),
                               );
                             },
                           ),
