@@ -210,6 +210,12 @@ class ModernLocatePlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Event
             }
         }
 
+        fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
+            if (lastLoc != null && locationCallback != null) {
+                events?.success(buildLocationMap(lastLoc))
+            }
+        }
+
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback!!, Looper.getMainLooper())
     }
 

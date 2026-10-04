@@ -23,6 +23,7 @@ class LocationBloc extends Bloc<LocationEvent, LocationState> {
     on<StartLocationTracking>(_onStartLocationTracking);
     on<StopLocationTracking>(_onStopLocationTracking);
     on<LocationUpdated>(_onLocationUpdated);
+    on<LocationTrackingFailed>(_onLocationTrackingFailed);
     on<OpenAppSettings>(_onOpenSettings);
   }
 
@@ -115,6 +116,7 @@ class LocationBloc extends Bloc<LocationEvent, LocationState> {
           add(LocationUpdated(result.data));
         } else if (result is Error<UserLocation>) {
           AppLogger.error("Location stream error: ${result.failure.message}");
+          add(LocationTrackingFailed(result.failure.message));
         }
       },
     );
@@ -134,6 +136,15 @@ class LocationBloc extends Bloc<LocationEvent, LocationState> {
     Emitter<LocationState> emit,
   ) {
     emit(LocationLoaded(userLocation: event.userLocation));
+  }
+
+  void _onLocationTrackingFailed(
+    LocationTrackingFailed event,
+    Emitter<LocationState> emit,
+  ) {
+    if (state is! LocationLoaded) {
+      emit(LocationError(message: event.message));
+    }
   }
 
   // Event: Open App Settings

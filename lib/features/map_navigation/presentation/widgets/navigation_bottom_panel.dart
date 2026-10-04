@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
@@ -9,11 +8,8 @@ import 'package:modern_ride/features/map_navigation/presentation/bloc/location_b
 import 'package:modern_ride/features/map_navigation/presentation/bloc/navigation_bloc/navigation_bloc.dart';
 import 'package:modern_ride/features/map_navigation/presentation/widgets/navigation_hud.dart';
 
-/// Bottom sheet panel container that renders contextual controls and information
-/// based on the current [NavigationState] and [LocationState].
-///
-/// Features a choreographed entrance delay and [RepaintBoundary] so the map camera
-/// and tiles settle completely before the panel slides in, preventing UI thread stutter.
+/// Declarative bottom panel container rendering contextual navigation controls
+/// and ride information purely derived from [NavigationState] and [LocationState].
 class NavigationBottomPanel extends StatefulWidget {
   final NavigationState navState;
   final LocationState locState;
@@ -29,7 +25,7 @@ class NavigationBottomPanel extends StatefulWidget {
     required this.selectedMode,
     required this.onModeChanged,
     required this.onStartRide,
-    this.entranceDelay = const Duration(milliseconds: 350),
+    this.entranceDelay = Duration.zero,
   });
 
   @override
@@ -37,47 +33,31 @@ class NavigationBottomPanel extends StatefulWidget {
 }
 
 class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
+  bool _delayCompleted = false;
   Timer? _delayTimer;
-  bool _hasEnteredOnce = false;
 
   @override
   void initState() {
     super.initState();
-    _checkEntrance();
+    _startDelayIfNeeded();
   }
 
   @override
   void didUpdateWidget(covariant NavigationBottomPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _checkEntrance();
+    _startDelayIfNeeded();
   }
 
-  void _checkEntrance() {
-    final shouldBeHidden = widget.navState is NavigationInitial &&
-        (widget.locState is LocationInitial || widget.locState is LocationLoading);
-
-    if (shouldBeHidden) {
-      _delayTimer?.cancel();
-      _delayTimer = null;
-      if (_hasEnteredOnce) {
-        setState(() => _hasEnteredOnce = false);
-      }
+  void _startDelayIfNeeded() {
+    if (widget.entranceDelay == Duration.zero) {
+      _delayCompleted = true;
       return;
     }
-
-    // When condition to show is met for the first time, allow map tiles and camera
-    // to settle smoothly before triggering the slide-up animation.
-    if (!_hasEnteredOnce && _delayTimer == null) {
-      if (widget.entranceDelay == Duration.zero) {
-        _hasEnteredOnce = true;
-      } else {
-        _delayTimer = Timer(widget.entranceDelay, () {
-          if (mounted) {
-            setState(() => _hasEnteredOnce = true);
-          }
-        });
+    _delayTimer ??= Timer(widget.entranceDelay, () {
+      if (mounted) {
+        setState(() => _delayCompleted = true);
       }
-    }
+    });
   }
 
   @override
@@ -88,20 +68,21 @@ class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final shouldBeHidden = widget.navState is NavigationInitial &&
-        (widget.locState is LocationInitial || widget.locState is LocationLoading);
-    final isHidden = shouldBeHidden || !_hasEnteredOnce;
+    // Declarative visibility: smoothly hidden only while initial GPS state is undetermined
+    final shouldShow = !(widget.navState is NavigationInitial &&
+        (widget.locState is LocationInitial || widget.locState is LocationLoading));
+    final isPanelVisible = shouldShow && _delayCompleted;
 
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 380),
       curve: Curves.easeOutCubic,
       left: 16,
       right: 16,
-      bottom: isHidden ? -260 : 16,
+      bottom: isPanelVisible ? 16 : -260,
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 280),
         curve: Curves.easeOut,
-        opacity: isHidden ? 0.0 : 1.0,
+        opacity: isPanelVisible ? 1.0 : 0.0,
         child: RepaintBoundary(
           child: SafeArea(
             child: Material(
@@ -110,7 +91,9 @@ class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
               color: Colors.white,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: isHidden ? const SizedBox.shrink() : _buildContent(context),
+                child: isPanelVisible
+                    ? _buildContent(context)
+                    : const SizedBox.shrink(),
               ),
             ),
           ),
@@ -133,6 +116,33 @@ class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
   }
 
   Widget _buildInitialPanel(BuildContext context, LocationState locState) {
+    if (locState is LocationLoading) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 10),
+              Text(
+                'Acquiring Location...',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Waiting for GPS fix, or tap anywhere on the map to set pickup manually.',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+        ],
+      );
+    }
     if (locState is LocationPermissionDenied) {
       return Column(
         mainAxisSize: MainAxisSize.min,

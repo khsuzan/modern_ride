@@ -26,4 +26,13 @@ class LocationUpdated extends LocationEvent {
   List<Object?> get props => [userLocation];
 }
 
+class LocationTrackingFailed extends LocationEvent {
+  final String message;
+
+  const LocationTrackingFailed(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}
+
 class OpenAppSettings extends LocationEvent {}

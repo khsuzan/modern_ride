@@ -18,7 +18,7 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   late final MapController _mapController;
 
   static const LatLng _defaultCenter = LatLng(23.8103, 90.4125);
@@ -27,13 +27,25 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _mapController = MapController();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _mapController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final locBloc = context.read<LocationBloc>();
+      if (locBloc.state is! LocationLoaded) {
+        locBloc.add(CheckLocationPermission());
+      }
+    }
   }
 
   void _onMapTap(TapPosition tapPosition, LatLng point) {

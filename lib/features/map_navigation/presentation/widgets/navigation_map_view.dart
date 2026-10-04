@@ -37,7 +37,8 @@ class NavigationMapView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isNavigating = navState is Navigating;
-    final isPickupAtMyLocation = userLocation != null &&
+    final isPickupAtMyLocation =
+        userLocation != null &&
         navState.pickup != null &&
         NavigationMath.haversineDistance(
               navState.pickup!,
@@ -53,6 +54,9 @@ class NavigationMapView extends StatelessWidget {
         onTap: onTap,
         onLongPress: onLongPress,
         onPositionChanged: onPositionChanged,
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+        ),
       ),
       children: [
         TileLayer(
@@ -122,15 +126,14 @@ class NavigationMapView extends StatelessWidget {
                 child: UserLocationMarker(location: userLocation!),
               ),
             // Destination Marker (Uber/Pathao ball on 2/3 height pen handle with animated drop)
-            if (navState.destination != null && navState is! NavigationCompleted)
+            if (navState.destination != null &&
+                navState is! NavigationCompleted)
               Marker(
                 point: navState.destination!,
                 width: 28,
                 height: 42,
                 alignment: Alignment.topCenter,
-                child: DestinationMarker(
-                  destination: navState.destination!,
-                ),
+                child: DestinationMarker(destination: navState.destination!),
               ),
           ],
         ),
@@ -145,9 +148,12 @@ class NavigationMapView extends StatelessWidget {
             position: (navState as NavigationCompleted).finalPosition,
             bearing: (navState as NavigationCompleted).route.points.length >= 2
                 ? NavigationMath.calculateBearing(
-                    (navState as NavigationCompleted)
-                        .route
-                        .points[(navState as NavigationCompleted).route.points.length - 2],
+                    (navState as NavigationCompleted).route.points[(navState
+                                as NavigationCompleted)
+                            .route
+                            .points
+                            .length -
+                        2],
                     (navState as NavigationCompleted).finalPosition,
                   )
                 : 0.0,
