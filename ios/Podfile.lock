@@ -1,0 +1,22 @@
+PODS:
+  - Flutter (1.0.0)
+  - modern_locate (0.0.1):
+    - Flutter
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - modern_locate (from `.symlinks/plugins/modern_locate/ios`)
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  modern_locate:
+    :path: ".symlinks/plugins/modern_locate/ios"
+
+SPEC CHECKSUMS:
+  Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
+  modern_locate: c580610a87d237a96fb539caeb7b6062ce870ad9
+
+PODFILE CHECKSUM: ce81335ae970aa1d7496f81e92e16db40bbeacb5
+
+COCOAPODS: 1.16.2
