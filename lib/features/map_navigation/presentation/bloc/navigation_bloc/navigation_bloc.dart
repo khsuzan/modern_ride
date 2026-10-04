@@ -46,6 +46,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     on<ClearDestination>(_onClearDestination);
     on<StartNavigation>(_onStartNavigation);
     on<ResetNavigation>(_onResetNavigation);
+    on<StartNewRide>(_onStartNewRide);
     on<NavigationTick>(_onNavigationTick);
     on<LocationStreamUpdated>(_onLocationStreamUpdated);
     on<TriggerSimulatedDeviation>(_onTriggerSimulatedDeviation);
@@ -62,10 +63,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     }
   }
 
-  void _onConfirmPickup(
-    ConfirmPickup event,
-    Emitter<NavigationState> emit,
-  ) {
+  void _onConfirmPickup(ConfirmPickup event, Emitter<NavigationState> emit) {
     final currentPickup = state.pickup;
     if (currentPickup != null) {
       emit(DestinationSelectionReady(pickup: currentPickup));
@@ -97,17 +95,21 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
 
     switch (result) {
       case Success(data: final route):
-        emit(RouteReady(
-          pickup: currentPickup,
-          destination: event.destination,
-          route: route,
-        ));
+        emit(
+          RouteReady(
+            pickup: currentPickup,
+            destination: event.destination,
+            route: route,
+          ),
+        );
       case Error(failure: final failure):
-        emit(RouteFailureState(
-          pickup: currentPickup,
-          destination: event.destination,
-          message: failure.message,
-        ));
+        emit(
+          RouteFailureState(
+            pickup: currentPickup,
+            destination: event.destination,
+            message: failure.message,
+          ),
+        );
     }
   }
 
@@ -127,6 +129,11 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     ClearDestination event,
     Emitter<NavigationState> emit,
   ) {
+    if (state is NavigationCompleted) {
+      final completed = state as NavigationCompleted;
+      emit(DestinationSelectionReady(pickup: completed.finalPosition));
+      return;
+    }
     final currentPickup = state.pickup;
     if (currentPickup != null) {
       emit(DestinationSelectionReady(pickup: currentPickup));
@@ -141,7 +148,9 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     final currentPickup = state.pickup;
     final currentDestination = state.destination;
 
-    if (currentRoute == null || currentPickup == null || currentDestination == null) {
+    if (currentRoute == null ||
+        currentPickup == null ||
+        currentDestination == null) {
       return;
     }
 
@@ -150,13 +159,15 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     _isRerouting = false;
     _lastRerouteTime = null;
 
-    emit(Navigating(
-      pickup: currentPickup,
-      destination: currentDestination,
-      route: currentRoute,
-      progress: _navigator!.initialProgress,
-      mode: event.mode,
-    ));
+    emit(
+      Navigating(
+        pickup: currentPickup,
+        destination: currentDestination,
+        route: currentRoute,
+        progress: _navigator!.initialProgress,
+        mode: event.mode,
+      ),
+    );
 
     if (event.mode == RideNavigationMode.simulation) {
       _simulationTimer = Timer.periodic(
@@ -164,36 +175,33 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         (_) => add(const NavigationTick()),
       );
     } else {
-      _locationSubscription = locationRepository.getLocationStream().listen(
-        (result) {
-          if (result is Success<UserLocation>) {
-            add(LocationStreamUpdated(result.data));
-          }
-        },
-      );
+      _locationSubscription = locationRepository.getLocationStream().listen((
+        result,
+      ) {
+        if (result is Success<UserLocation>) {
+          add(LocationStreamUpdated(result.data));
+        }
+      });
     }
   }
 
-  void _onNavigationTick(
-    NavigationTick event,
-    Emitter<NavigationState> emit,
-  ) {
+  void _onNavigationTick(NavigationTick event, Emitter<NavigationState> emit) {
     if (state is! Navigating || _navigator == null) return;
     final currentNavState = state as Navigating;
 
     final dtSeconds = simulationTickInterval.inMilliseconds / 1000.0;
-    final progress = _navigator!.advanceTick(
-      dtSeconds: dtSeconds,
-    );
+    final progress = _navigator!.advanceTick(dtSeconds: dtSeconds);
 
     if (progress.isCompleted) {
       _stopNavigationStreams();
-      emit(NavigationCompleted(
-        pickup: currentNavState.pickup,
-        destination: currentNavState.destination,
-        route: currentNavState.route,
-        finalPosition: progress.currentPosition,
-      ));
+      emit(
+        NavigationCompleted(
+          pickup: currentNavState.pickup,
+          destination: currentNavState.destination,
+          route: currentNavState.route,
+          finalPosition: progress.currentPosition,
+        ),
+      );
     } else {
       emit(currentNavState.copyWith(progress: progress));
     }
@@ -213,12 +221,14 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
 
     if (progress.isCompleted) {
       _stopNavigationStreams();
-      emit(NavigationCompleted(
-        pickup: currentNavState.pickup,
-        destination: currentNavState.destination,
-        route: currentNavState.route,
-        finalPosition: progress.currentPosition,
-      ));
+      emit(
+        NavigationCompleted(
+          pickup: currentNavState.pickup,
+          destination: currentNavState.destination,
+          route: currentNavState.route,
+          finalPosition: progress.currentPosition,
+        ),
+      );
       return;
     }
 
@@ -277,11 +287,13 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     switch (result) {
       case Success(data: final newRoute):
         _navigator = RouteNavigator(route: newRoute);
-        emit(latestNavState.copyWith(
-          route: newRoute,
-          progress: _navigator!.initialProgress,
-          isRerouting: false,
-        ));
+        emit(
+          latestNavState.copyWith(
+            route: newRoute,
+            progress: _navigator!.initialProgress,
+            isRerouting: false,
+          ),
+        );
       case Error():
         emit(latestNavState.copyWith(isRerouting: false));
     }
@@ -299,28 +311,50 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     final currentDestination = state.destination;
     final currentRoute = state.route;
 
-    if (currentPickup != null && currentDestination != null && currentRoute != null) {
-      emit(RouteReady(
-        pickup: currentPickup,
-        destination: currentDestination,
-        route: currentRoute,
-      ));
+    if (currentPickup != null &&
+        currentDestination != null &&
+        currentRoute != null) {
+      emit(
+        RouteReady(
+          pickup: currentPickup,
+          destination: currentDestination,
+          route: currentRoute,
+        ),
+      );
     }
   }
 
-  void _onRecenterCamera(
-    RecenterCamera event,
-    Emitter<NavigationState> emit,
-  ) {
+  void _onStartNewRide(StartNewRide event, Emitter<NavigationState> emit) {
+    _stopNavigationStreams();
+    _navigator?.reset();
+    _isRerouting = false;
+
+    if (event.newPickup != null) {
+      emit(DestinationSelectionReady(pickup: event.newPickup!));
+      return;
+    }
+
+    if (state is NavigationCompleted) {
+      final completed = state as NavigationCompleted;
+      emit(DestinationSelectionReady(pickup: completed.finalPosition));
+      return;
+    }
+
+    final currentPickup = state.pickup;
+    if (currentPickup != null) {
+      emit(DestinationSelectionReady(pickup: currentPickup));
+    } else {
+      emit(const NavigationInitial());
+    }
+  }
+
+  void _onRecenterCamera(RecenterCamera event, Emitter<NavigationState> emit) {
     if (state is Navigating) {
       emit((state as Navigating).copyWith(isCameraFollowing: true));
     }
   }
 
-  void _onCameraPanned(
-    CameraPanned event,
-    Emitter<NavigationState> emit,
-  ) {
+  void _onCameraPanned(CameraPanned event, Emitter<NavigationState> emit) {
     if (state is Navigating) {
       emit((state as Navigating).copyWith(isCameraFollowing: false));
     }

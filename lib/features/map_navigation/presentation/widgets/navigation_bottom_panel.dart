@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
@@ -10,7 +9,7 @@ import 'package:modern_ride/features/map_navigation/presentation/widgets/navigat
 
 /// Declarative bottom panel container rendering contextual navigation controls
 /// and ride information purely derived from [NavigationState] and [LocationState].
-class NavigationBottomPanel extends StatefulWidget {
+class NavigationBottomPanel extends StatelessWidget {
   final NavigationState navState;
   final LocationState locState;
   final RideNavigationMode selectedMode;
@@ -29,49 +28,11 @@ class NavigationBottomPanel extends StatefulWidget {
   });
 
   @override
-  State<NavigationBottomPanel> createState() => _NavigationBottomPanelState();
-}
-
-class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
-  bool _delayCompleted = false;
-  Timer? _delayTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _startDelayIfNeeded();
-  }
-
-  @override
-  void didUpdateWidget(covariant NavigationBottomPanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _startDelayIfNeeded();
-  }
-
-  void _startDelayIfNeeded() {
-    if (widget.entranceDelay == Duration.zero) {
-      _delayCompleted = true;
-      return;
-    }
-    _delayTimer ??= Timer(widget.entranceDelay, () {
-      if (mounted) {
-        setState(() => _delayCompleted = true);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _delayTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     // Declarative visibility: smoothly hidden only while initial GPS state is undetermined
-    final shouldShow = !(widget.navState is NavigationInitial &&
-        (widget.locState is LocationInitial || widget.locState is LocationLoading));
-    final isPanelVisible = shouldShow && _delayCompleted;
+    final isPanelVisible =
+        !(navState is NavigationInitial &&
+            (locState is LocationInitial || locState is LocationLoading));
 
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 380),
@@ -103,46 +64,25 @@ class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
   }
 
   Widget _buildContent(BuildContext context) {
-    return switch (widget.navState) {
-      NavigationInitial() => _buildInitialPanel(context, widget.locState),
-      PickupSelected(:final pickup) => _buildPickupSelectedPanel(context, pickup),
+    return switch (navState) {
+      NavigationInitial() => _buildInitialPanel(context, locState),
+      PickupSelected(:final pickup) => _buildPickupSelectedPanel(
+        context,
+        pickup,
+      ),
       DestinationSelectionReady() => _buildDestinationPromptPanel(context),
       RouteLoading() => _buildRouteLoadingPanel(),
       RouteReady(:final route) => _buildRouteReadyPanel(context, route),
-      Navigating() => NavigationHud(state: widget.navState as Navigating),
+      Navigating() => NavigationHud(state: navState as Navigating),
       NavigationCompleted(:final route) => _buildCompletedPanel(context, route),
-      RouteFailureState(:final message) => _buildRouteFailurePanel(context, message),
+      RouteFailureState(:final message) => _buildRouteFailurePanel(
+        context,
+        message,
+      ),
     };
   }
 
   Widget _buildInitialPanel(BuildContext context, LocationState locState) {
-    if (locState is LocationLoading) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Row(
-            children: [
-              SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              SizedBox(width: 10),
-              Text(
-                'Acquiring Location...',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Waiting for GPS fix, or tap anywhere on the map to set pickup manually.',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-          ),
-        ],
-      );
-    }
     if (locState is LocationPermissionDenied) {
       return Column(
         mainAxisSize: MainAxisSize.min,
@@ -171,7 +111,9 @@ class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
               }
             },
             child: Text(
-              locState.isPermanentlyDenied ? 'OPEN SETTINGS' : 'ENABLE LOCATION',
+              locState.isPermanentlyDenied
+                  ? 'OPEN SETTINGS'
+                  : 'ENABLE LOCATION',
             ),
           ),
         ],
@@ -188,7 +130,7 @@ class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Use your current location or tap the map to choose a pickup point.',
+          locState is LocationError ? locState.message : 'Use your current location or tap the map to choose a pickup point.',
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 12),
@@ -203,10 +145,11 @@ class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
   }
 
   Widget _buildPickupSelectedPanel(BuildContext context, LatLng pickup) {
-    final userLocation = widget.locState is LocationLoaded
-        ? (widget.locState as LocationLoaded).userLocation
+    final userLocation = locState is LocationLoaded
+        ? (locState as LocationLoaded).userLocation
         : null;
-    final isAtUserLocation = userLocation != null &&
+    final isAtUserLocation =
+        userLocation != null &&
         (pickup.latitude - userLocation.latitude).abs() < 0.0001 &&
         (pickup.longitude - userLocation.longitude).abs() < 0.0001;
 
@@ -228,11 +171,14 @@ class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
                 icon: const Icon(Icons.my_location, size: 16),
-                label: const Text('My Location', style: TextStyle(fontSize: 12)),
+                label: const Text(
+                  'My Location',
+                  style: TextStyle(fontSize: 12),
+                ),
                 onPressed: () {
                   context.read<NavigationBloc>().add(
-                        SetPickupLocation(userLocation.toLatLng),
-                      );
+                    SetPickupLocation(userLocation.toLatLng),
+                  );
                 },
               ),
           ],
@@ -269,7 +215,9 @@ class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
             ),
             TextButton(
               onPressed: () {
-                context.read<NavigationBloc>().add(const ResetToPickupSelection());
+                context.read<NavigationBloc>().add(
+                  const ResetToPickupSelection(),
+                );
               },
               child: const Text('Change Pickup'),
             ),
@@ -277,8 +225,8 @@ class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Long-press anywhere on the map to set your destination.',
-          style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+          'Long-press anywhere on the map to set your destination pin.',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
       ],
     );
@@ -293,11 +241,11 @@ class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
           SizedBox(
             width: 20,
             height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: CircularProgressIndicator(strokeWidth: 2.5),
           ),
           SizedBox(width: 12),
           Text(
-            'Calculating driving route...',
+            'Calculating optimal driving route...',
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           ),
         ],
@@ -316,31 +264,32 @@ class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Route Ready',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$durationMin min ($distanceKm km)',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Fastest route via road network',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ],
             ),
-            TextButton(
+            IconButton(
+              icon: const Icon(Icons.close),
               onPressed: () {
                 context.read<NavigationBloc>().add(const ClearDestination());
               },
-              child: const Text('Reset'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            Icon(Icons.directions_car, size: 18, color: Colors.blue.shade700),
-            const SizedBox(width: 6),
-            Text(
-              '$distanceKm km  •  $durationMin min',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        // Mode Selector: Simulation vs Real GPS
         SegmentedButton<RideNavigationMode>(
           segments: const [
             ButtonSegment(
@@ -354,8 +303,8 @@ class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
               icon: Icon(Icons.gps_fixed, size: 18),
             ),
           ],
-          selected: {widget.selectedMode},
-          onSelectionChanged: (modes) => widget.onModeChanged(modes.first),
+          selected: {selectedMode},
+          onSelectionChanged: (modes) => onModeChanged(modes.first),
         ),
         const SizedBox(height: 12),
         ElevatedButton(
@@ -364,9 +313,9 @@ class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 12),
           ),
-          onPressed: widget.onStartRide,
+          onPressed: onStartRide,
           child: Text(
-            widget.selectedMode == RideNavigationMode.simulation
+            selectedMode == RideNavigationMode.simulation
                 ? 'START SIMULATION'
                 : 'START REAL RIDE',
             style: const TextStyle(fontWeight: FontWeight.bold),
@@ -401,7 +350,10 @@ class _NavigationBottomPanelState extends State<NavigationBottomPanel> {
         const SizedBox(height: 14),
         ElevatedButton(
           onPressed: () {
-            context.read<NavigationBloc>().add(const ClearDestination());
+            final userLoc = locState is LocationLoaded
+                ? (locState as LocationLoaded).userLocation.toLatLng
+                : null;
+            context.read<NavigationBloc>().add(StartNewRide(userLoc));
           },
           child: const Text('NEW RIDE'),
         ),

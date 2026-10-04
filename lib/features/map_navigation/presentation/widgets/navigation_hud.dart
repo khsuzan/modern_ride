@@ -7,10 +7,7 @@ import 'package:modern_ride/features/map_navigation/presentation/bloc/navigation
 class NavigationHud extends StatelessWidget {
   final Navigating state;
 
-  const NavigationHud({
-    super.key,
-    required this.state,
-  });
+  const NavigationHud({super.key, required this.state});
 
   String _formatDistance(double meters) {
     if (meters >= 1000) {
@@ -45,19 +42,8 @@ class NavigationHud extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: isSimulation
-                    ? Colors.purple.shade50
-                    : Colors.green.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: isSimulation
-                      ? Colors.purple.shade300
-                      : Colors.green.shade300,
-                ),
-              ),
               child: Text(
-                isSimulation ? 'SIMULATION MODE' : 'REAL GPS RIDE',
+                isSimulation ? 'SIMULATION' : 'RIDE',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
@@ -73,7 +59,10 @@ class NavigationHud extends StatelessWidget {
                 if (isSimulation)
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       visualDensity: VisualDensity.compact,
                     ),
                     icon: const Icon(Icons.alt_route_rounded, size: 16),
@@ -84,14 +73,18 @@ class NavigationHud extends StatelessWidget {
                     onPressed: state.isRerouting
                         ? null
                         : () {
-                            context
-                                .read<NavigationBloc>()
-                                .add(const TriggerSimulatedDeviation());
+                            context.read<NavigationBloc>().add(
+                              const TriggerSimulatedDeviation(),
+                            );
                           },
                   ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: const Icon(Icons.stop_rounded, size: 26, color: Colors.red),
+                  icon: const Icon(
+                    Icons.stop_rounded,
+                    size: 26,
+                    color: Colors.red,
+                  ),
                   tooltip: 'Cancel Ride',
                   onPressed: () {
                     context.read<NavigationBloc>().add(const ResetNavigation());
@@ -119,7 +112,9 @@ class NavigationHud extends StatelessWidget {
                   height: 14,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.orange.shade800),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Colors.orange.shade800,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -147,7 +142,9 @@ class NavigationHud extends StatelessWidget {
             value: progress.progressFraction.clamp(0.0, 1.0),
             minHeight: 6,
             backgroundColor: Colors.grey.shade200,
-            valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+            valueColor: AlwaysStoppedAnimation<Color>(
+              theme.colorScheme.primary,
+            ),
           ),
         ),
 

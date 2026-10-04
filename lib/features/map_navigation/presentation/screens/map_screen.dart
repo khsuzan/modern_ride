@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:modern_ride/features/map_navigation/domain/entities/ride_navigation_mode.dart';
 import 'package:modern_ride/features/map_navigation/presentation/bloc/location_bloc/location_bloc.dart';
 import 'package:modern_ride/features/map_navigation/presentation/bloc/navigation_bloc/navigation_bloc.dart';
+import 'package:modern_ride/features/map_navigation/presentation/controllers/map_camera_animator.dart';
 import 'package:modern_ride/features/map_navigation/presentation/widgets/map_recenter_button.dart';
 import 'package:modern_ride/features/map_navigation/presentation/widgets/navigation_bottom_panel.dart';
 import 'package:modern_ride/features/map_navigation/presentation/widgets/navigation_map_view.dart';
@@ -18,8 +19,11 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
+class _MapScreenState extends State<MapScreen>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late final MapController _mapController;
+  late final MapCameraAnimator _cameraAnimator;
+  NavigationState? _previousNavState;
 
   static const LatLng _defaultCenter = LatLng(23.8103, 90.4125);
   RideNavigationMode _selectedNavigationMode = RideNavigationMode.simulation;
@@ -29,11 +33,16 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _mapController = MapController();
+    _cameraAnimator = MapCameraAnimator(
+      mapController: _mapController,
+      vsync: this,
+    );
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _cameraAnimator.dispose();
     _mapController.dispose();
     super.dispose();
   }
@@ -73,6 +82,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
   void _onPositionChanged(MapCamera camera, bool hasGesture) {
     if (hasGesture) {
+      _cameraAnimator.cancelAnimation();
       final navBloc = context.read<NavigationBloc>();
       if (navBloc.state is Navigating) {
         navBloc.add(const CameraPanned());
@@ -87,31 +97,45 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       final navBloc = context.read<NavigationBloc>();
       if (navBloc.state is NavigationInitial) {
         navBloc.add(SetConfirmedPickup(userLatLng));
-        _mapController.move(userLatLng, 16.0);
+        _cameraAnimator.animateTo(destLocation: userLatLng, destZoom: 16.0);
       }
     }
   }
 
   void _onNavigationStateChanged(BuildContext context, NavigationState state) {
     if (!mounted) return;
+    final prevState = _previousNavState;
+    _previousNavState = state;
+
     if (state is RouteReady && state.route.points.isNotEmpty) {
       final bounds = LatLngBounds.fromPoints(state.route.points);
-      _mapController.fitCamera(
-        CameraFit.bounds(
-          bounds: bounds,
-          padding: const EdgeInsets.only(
-            left: 48,
-            right: 48,
-            top: 64,
-            bottom: 240,
-          ),
+      _cameraAnimator.animateToBounds(
+        bounds: bounds,
+        padding: const EdgeInsets.only(
+          left: 48,
+          right: 48,
+          top: 64,
+          bottom: 240,
         ),
       );
-    } else if (state is Navigating && state.isCameraFollowing) {
-      _mapController.move(
-        state.progress.currentPosition,
-        _mapController.camera.zoom < 15.0 ? 16.0 : _mapController.camera.zoom,
-      );
+    } else if (state is DestinationSelectionReady) {
+      _cameraAnimator.animateTo(destLocation: state.pickup, destZoom: 16.0);
+    } else if (state is Navigating) {
+      if (prevState is! Navigating) {
+        _cameraAnimator.animateTo(
+          destLocation: state.progress.currentPosition,
+          destZoom: 16.0,
+        );
+      } else if (state.isCameraFollowing) {
+        if (!_cameraAnimator.isAnimating) {
+          _mapController.move(
+            state.progress.currentPosition,
+            _mapController.camera.zoom < 15.0
+                ? 16.0
+                : _mapController.camera.zoom,
+          );
+        }
+      }
     } else if (state is RouteFailureState) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -149,8 +173,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                         mapController: _mapController,
                         initialCenter: _defaultCenter,
                         navState: navState,
-                        userLocation:
-                            locState is LocationLoaded ? locState.userLocation : null,
+                        userLocation: locState is LocationLoaded
+                            ? locState.userLocation
+                            : null,
                         onTap: _onMapTap,
                         onLongPress: _onMapLongPress,
                         onPositionChanged: _onPositionChanged,
@@ -166,9 +191,10 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                             isVisible: isRecenterVisible,
                             onRecenter: () {
                               if (navState is Navigating) {
-                                _mapController.move(
-                                  navState.progress.currentPosition,
-                                  16.0,
+                                _cameraAnimator.animateTo(
+                                  destLocation:
+                                      navState.progress.currentPosition,
+                                  destZoom: 16.0,
                                 );
                               }
                             },
@@ -184,8 +210,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                             },
                             onStartRide: () {
                               context.read<NavigationBloc>().add(
-                                    StartNavigation(mode: _selectedNavigationMode),
-                                  );
+                                StartNavigation(mode: _selectedNavigationMode),
+                              );
                             },
                           ),
                         ],

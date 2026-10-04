@@ -52,6 +52,16 @@ final class ClearDestination extends NavigationEvent {
   const ClearDestination();
 }
 
+/// Resets navigation and begins a new ride, setting pickup to current location or arrival position.
+final class StartNewRide extends NavigationEvent {
+  final LatLng? newPickup;
+
+  const StartNewRide([this.newPickup]);
+
+  @override
+  List<Object?> get props => [newPickup];
+}
+
 /// Starts navigation in either [RideNavigationMode.simulation] or [RideNavigationMode.realRide].
 final class StartNavigation extends NavigationEvent {
   final RideNavigationMode mode;

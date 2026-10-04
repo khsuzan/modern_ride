@@ -11,6 +11,7 @@ import 'package:modern_ride/features/map_navigation/domain/repositories/route_re
 import 'package:modern_ride/features/map_navigation/presentation/bloc/navigation_bloc/navigation_bloc.dart';
 
 class MockRouteRepository extends Mock implements RouteRepository {}
+
 class MockLocationRepository extends Mock implements LocationRepository {}
 
 void main() {
@@ -36,9 +37,9 @@ void main() {
   });
 
   NavigationBloc buildBloc() => NavigationBloc(
-        routeRepository: mockRouteRepository,
-        locationRepository: mockLocationRepository,
-      );
+    routeRepository: mockRouteRepository,
+    locationRepository: mockLocationRepository,
+  );
 
   test('initial state is NavigationInitial', () {
     expect(buildBloc().state, equals(const NavigationInitial()));
@@ -49,9 +50,7 @@ void main() {
       'emits [PickupSelected] when state is NavigationInitial',
       build: buildBloc,
       act: (bloc) => bloc.add(const SetPickupLocation(testPickup)),
-      expect: () => [
-        const PickupSelected(pickup: testPickup),
-      ],
+      expect: () => [const PickupSelected(pickup: testPickup)],
     );
 
     blocTest<NavigationBloc, NavigationState>(
@@ -59,9 +58,7 @@ void main() {
       build: buildBloc,
       seed: () => const PickupSelected(pickup: testPickup),
       act: (bloc) => bloc.add(const SetPickupLocation(LatLng(23.82, 90.42))),
-      expect: () => [
-        const PickupSelected(pickup: LatLng(23.82, 90.42)),
-      ],
+      expect: () => [const PickupSelected(pickup: LatLng(23.82, 90.42))],
     );
   });
 
@@ -71,9 +68,7 @@ void main() {
       build: buildBloc,
       seed: () => const PickupSelected(pickup: testPickup),
       act: (bloc) => bloc.add(const ConfirmPickup()),
-      expect: () => [
-        const DestinationSelectionReady(pickup: testPickup),
-      ],
+      expect: () => [const DestinationSelectionReady(pickup: testPickup)],
     );
 
     blocTest<NavigationBloc, NavigationState>(
@@ -89,9 +84,7 @@ void main() {
       'emits [DestinationSelectionReady] directly from NavigationInitial',
       build: buildBloc,
       act: (bloc) => bloc.add(const SetConfirmedPickup(testPickup)),
-      expect: () => [
-        const DestinationSelectionReady(pickup: testPickup),
-      ],
+      expect: () => [const DestinationSelectionReady(pickup: testPickup)],
     );
 
     blocTest<NavigationBloc, NavigationState>(
@@ -99,9 +92,7 @@ void main() {
       build: buildBloc,
       seed: () => const PickupSelected(pickup: LatLng(23.70, 90.30)),
       act: (bloc) => bloc.add(const SetConfirmedPickup(testPickup)),
-      expect: () => [
-        const DestinationSelectionReady(pickup: testPickup),
-      ],
+      expect: () => [const DestinationSelectionReady(pickup: testPickup)],
     );
   });
 
@@ -189,7 +180,8 @@ void main() {
             destination: any(named: 'destination'),
           ),
         ).thenAnswer(
-          (_) async => const Error(NoRouteFoundFailure('No driving route found.')),
+          (_) async =>
+              const Error(NoRouteFoundFailure('No driving route found.')),
         );
         return buildBloc();
       },
@@ -216,7 +208,8 @@ void main() {
         destination: testDestination,
         route: testRoute,
       ),
-      act: (bloc) => bloc.add(const StartNavigation(mode: RideNavigationMode.simulation)),
+      act: (bloc) =>
+          bloc.add(const StartNavigation(mode: RideNavigationMode.simulation)),
       expect: () => [
         isA<Navigating>()
             .having((s) => s.mode, 'mode', RideNavigationMode.simulation)
@@ -227,9 +220,8 @@ void main() {
     blocTest<NavigationBloc, NavigationState>(
       'starts realRide navigation and connects to locationStream',
       build: () {
-        when(() => mockLocationRepository.getLocationStream()).thenAnswer(
-          (_) => const Stream.empty(),
-        );
+        when(() => mockLocationRepository.getLocationStream())
+            .thenAnswer((_) => const Stream.empty());
         return buildBloc();
       },
       seed: () => const RouteReady(
@@ -237,7 +229,8 @@ void main() {
         destination: testDestination,
         route: testRoute,
       ),
-      act: (bloc) => bloc.add(const StartNavigation(mode: RideNavigationMode.realRide)),
+      act: (bloc) =>
+          bloc.add(const StartNavigation(mode: RideNavigationMode.realRide)),
       expect: () => [
         isA<Navigating>()
             .having((s) => s.mode, 'mode', RideNavigationMode.realRide)
@@ -293,7 +286,11 @@ void main() {
       },
       expect: () => [
         isA<Navigating>().having((s) => s.isCameraFollowing, 'following', true),
-        isA<Navigating>().having((s) => s.isCameraFollowing, 'following', false),
+        isA<Navigating>().having(
+          (s) => s.isCameraFollowing,
+          'following',
+          false,
+        ),
         isA<Navigating>().having((s) => s.isCameraFollowing, 'following', true),
       ],
     );
@@ -328,7 +325,11 @@ void main() {
       },
       expect: () => [
         isA<Navigating>(),
-        isA<Navigating>().having((s) => s.progress.isOffRoute, 'isOffRoute', true),
+        isA<Navigating>().having(
+          (s) => s.progress.isOffRoute,
+          'isOffRoute',
+          true,
+        ),
         isA<Navigating>().having((s) => s.isRerouting, 'isRerouting', true),
         isA<Navigating>()
             .having((s) => s.route, 'route', rerouted)
@@ -336,5 +337,34 @@ void main() {
       ],
     );
   });
-}
 
+  group('StartNewRide', () {
+    const newLocation = LatLng(23.8300, 90.4300);
+
+    blocTest<NavigationBloc, NavigationState>(
+      'sets pickup to supplied newPickup location',
+      build: buildBloc,
+      seed: () => const NavigationCompleted(
+        pickup: testPickup,
+        destination: testDestination,
+        route: testRoute,
+        finalPosition: testDestination,
+      ),
+      act: (bloc) => bloc.add(const StartNewRide(newLocation)),
+      expect: () => [const DestinationSelectionReady(pickup: newLocation)],
+    );
+
+    blocTest<NavigationBloc, NavigationState>(
+      'falls back to finalPosition when no newPickup is supplied on ride completion',
+      build: buildBloc,
+      seed: () => const NavigationCompleted(
+        pickup: testPickup,
+        destination: testDestination,
+        route: testRoute,
+        finalPosition: testDestination,
+      ),
+      act: (bloc) => bloc.add(const StartNewRide()),
+      expect: () => [const DestinationSelectionReady(pickup: testDestination)],
+    );
+  });
+}
